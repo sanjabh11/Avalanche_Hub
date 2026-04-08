@@ -1,0 +1,5 @@
+{
+  "name": "Avalanche Hub",
+  "description": "24-hour avalanche prediction and risk management for data-scarce regions, utilizing LLM-synthesized historical data and multi-modal geospatial telemetry.",
+  "requestFramePermissions": ["geolocation"]
+}

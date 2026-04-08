@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "AvalancheEvent": {
+      "title": "Avalanche Event",
+      "description": "A confirmed historical avalanche event extracted from news or field reports.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "location": { "type": "object", "description": "GeoJSON Point" },
+        "source": { "type": "string", "description": "News URL or 'field_report'" },
+        "description": { "type": "string" },
+        "severity": { "type": "number", "description": "1-5 scale" },
+        "type": { "type": "string", "enum": ["dry-slab", "wet-snow", "glide", "loose-snow"] },
+        "features": { "type": "object", "description": "Pre-computed static and dynamic features at event time" },
+        "confidence": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["timestamp", "location", "severity", "createdAt"]
+    },
+    "NonEventBaseline": {
+      "title": "Non-Event Baseline",
+      "description": "A negative sample (no avalanche) for model training.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "location": { "type": "object" },
+        "features": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["timestamp", "location", "createdAt"]
+    },
+    "Forecast": {
+      "title": "Avalanche Forecast",
+      "description": "A 24-hour predictive risk assessment for a specific grid cell.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "bbox": { "type": "array", "items": { "type": "number" } },
+        "riskScore": { "type": "number", "description": "1-5 scale" },
+        "hazard": { "type": "number" },
+        "exposure": { "type": "number" },
+        "vulnerability": { "type": "number" },
+        "problemType": { "type": "string" },
+        "shapValues": { "type": "object" },
+        "gridData": { "type": "array", "description": "500m grid risk values" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["timestamp", "bbox", "riskScore", "createdAt"]
+    },
+    "FieldReport": {
+      "title": "Field Report",
+      "description": "User-uploaded geotagged report of an avalanche.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "location": { "type": "object" },
+        "imageUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "timestamp", "location", "status", "createdAt"]
+    },
+    "ComputeJob": {
+      "title": "Compute Job",
+      "description": "A background task for data extraction, feature engineering, or model training.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["daily_enrichment", "feature_engineering", "weekly_fine_tune"] },
+        "status": { "type": "string", "enum": ["queued", "processing", "completed", "failed"] },
+        "payload": { "type": "object" },
+        "result": { "type": "object" },
+        "error": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/avalanche_events": {
+      "schema": "AvalancheEvent",
+      "description": "Historical avalanche events."
+    },
+    "/non_event_baselines": {
+      "schema": "NonEventBaseline",
+      "description": "Negative samples for training."
+    },
+    "/forecasts": {
+      "schema": "Forecast",
+      "description": "Generated forecasts."
+    },
+    "/field_reports": {
+      "schema": "FieldReport",
+      "description": "User field reports."
+    },
+    "/compute_jobs": {
+      "schema": "ComputeJob",
+      "description": "Background task queue."
+    }
+  }
+}

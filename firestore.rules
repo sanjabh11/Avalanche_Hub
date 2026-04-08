@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: avalanche_events
+    // Fields: id, timestamp, location, source, description, severity, type, features, confidence, createdAt
+    //
+    // Collection: non_event_baselines
+    // Fields: id, timestamp, location, features, createdAt
+    //
+    // Collection: forecasts
+    // Fields: id, timestamp, bbox, riskScore, hazard, exposure, vulnerability, problemType, shapValues, gridData, createdAt
+    //
+    // Collection: field_reports
+    // Fields: id, uid, timestamp, location, imageUrl, description, status, createdAt
+    //
+    // Collection: compute_jobs
+    // Fields: id, type, status, payload, result, error, createdAt, updatedAt
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "sanjabh11@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidAvalancheEvent(data) {
+      return data.timestamp is string && isValidDateString(data.timestamp) &&
+             data.severity is number && data.severity >= 1 && data.severity <= 5 &&
+             data.createdAt is string && isValidDateString(data.createdAt);
+    }
+
+    function isValidFieldReport(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.timestamp is string && isValidDateString(data.timestamp) &&
+             data.status in ['pending', 'verified', 'rejected'] &&
+             data.createdAt is string && isValidDateString(data.createdAt);
+    }
+
+    function isValidComputeJob(data) {
+      return data.type in ['daily_enrichment', 'feature_engineering', 'weekly_fine_tune', 'sentinel_refresh', 'static_precompute'] &&
+             data.status in ['queued', 'processing', 'completed', 'failed'] &&
+             data.createdAt is string && isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /avalanche_events/{eventId} {
+      allow read: if true; // Publicly readable for the map
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /non_event_baselines/{baselineId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /forecasts/{forecastId} {
+      allow read: if true; // Publicly readable for the map
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /field_reports/{reportId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.uid) || isAdmin());
+      allow create: if (isAuthenticated() && isValidFieldReport(request.resource.data)) || 
+                     (!isAuthenticated() && request.resource.data.uid == 'anonymous' && isValidDateString(request.resource.data.timestamp));
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /compute_jobs/{jobId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidComputeJob(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /system_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId) && request.resource.data.role == 'user';
+      allow update: if isAdmin();
+    }
+  }
+}
